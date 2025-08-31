@@ -1,0 +1,19 @@
+{
+  "name": "melomania-card",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@vercel/postgres": "0.8.0",
+    "nanoid": "5.0.7",
+    "next": "14.2.5",
+    "qrcode": "1.5.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "zod": "3.23.8"
+  }
+}
