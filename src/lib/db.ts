@@ -4,6 +4,10 @@ import { sql } from '@vercel/postgres';
 let initialized = false;
 export async function ensureSchema() {
   if (initialized) return;
+
+  // Enable UUID generator
+  await sql/* sql */`create extension if not exists "pgcrypto";`;
+
   await sql/* sql */`
     create table if not exists profiles (
       id uuid primary key default gen_random_uuid(),
@@ -13,6 +17,7 @@ export async function ensureSchema() {
       updated_at timestamptz default now()
     );
   `;
+
   await sql/* sql */`
     do $$
     begin
@@ -21,6 +26,7 @@ export async function ensureSchema() {
       end if;
     end$$;
   `;
+
   await sql/* sql */`
     create table if not exists passes (
       id uuid primary key default gen_random_uuid(),
@@ -32,6 +38,7 @@ export async function ensureSchema() {
       checked_in_at timestamptz
     );
   `;
+
   initialized = true;
 }
 
