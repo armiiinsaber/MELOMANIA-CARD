@@ -1,50 +1,44 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
 import { makeToken, normalizeEmail, normalizeUsername } from '../../../lib/utils';
 import { ActivateSchema } from '../../../lib/validation';
-import { ensureSchema, sql } from '../../../lib/db';
+import { supabaseAdmin } from '../../../lib/db';
 
 export async function POST(req: Request) {
-  await ensureSchema();
-
   const body = await req.json();
   const parsed = ActivateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ ok:false, errors: parsed.error.format() }, { status: 400 });
-  }
+  if (!parsed.success) return NextResponse.json({ ok:false, errors: parsed.error.format() }, { status: 400 });
 
   const { email, username, eventSlug } = parsed.data;
   const e = normalizeEmail(email);
   const u = normalizeUsername(username);
 
-  // block if username belongs to another email
-  const userCheck = await sql/* sql */`
-    select * from profiles where email = ${e} or username = ${u} limit 1;
-  `;
-  if (userCheck.rows[0] && userCheck.rows[0].email !== e && userCheck.rows[0].username === u) {
+  const { data: byEmail } = await supabaseAdmin.from('profiles').select('*').eq('email', e).maybeSingle();
+  const { data: byUsername } = await supabaseAdmin.from('profiles').select('*').eq('username', u).maybeSingle();
+
+  if (byUsername && (!byEmail || byEmail.id !== byUsername.id)) {
     return NextResponse.json({ ok:false, reason:'username_taken' }, { status: 409 });
   }
 
-  // create (or reuse) profile
-  let userId = userCheck.rows[0]?.id as string | undefined;
+  let userId = byEmail?.id as string | undefined;
   if (!userId) {
-    const created = await sql/* sql */`
-      insert into profiles (email, username) values (${e}, ${u}) returning id;
-    `;
-    userId = created.rows[0].id as string;
+    const { data: created, error: insErr } = await supabaseAdmin
+      .from('profiles').insert({ email: e, username: u })
+      .select('id').single();
+    if (insErr) return NextResponse.json({ ok:false, reason:'db_error' }, { status: 500 });
+    userId = created.id;
   }
 
-  // revoke prior active pass for same event
-  await sql/* sql */`
-    update passes set status='revoked'
-    where user_id=${userId} and event_slug=${eventSlug} and status='active';
-  `;
+  await supabaseAdmin.from('passes')
+    .update({ status: 'revoked' })
+    .eq('user_id', userId).eq('event_slug', eventSlug).eq('status', 'active');
 
-  // issue new pass
   const token = makeToken();
-  await sql/* sql */`
-    insert into passes (user_id, event_slug, qr_token, status)
-    values (${userId}, ${eventSlug}, ${token}, 'active');
-  `;
+  const { error: passErr } = await supabaseAdmin.from('passes')
+    .insert({ user_id: userId, event_slug: eventSlug, qr_token: token, status: 'active' });
+  if (passErr) return NextResponse.json({ ok:false, reason:'db_error' }, { status: 500 });
 
   const base = process.env.NEXT_PUBLIC_SITE_URL!;
   return NextResponse.json({ ok:true, token, cardUrl: `${base}/card/${token}` });
