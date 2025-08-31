@@ -1,5 +1,5 @@
 import QRCode from 'qrcode';
-import { ensureSchema, sql } from '@/lib/db';
+import { ensureSchema, sql } from '../../../lib/db';
 
 async function getPass(token: string) {
   await ensureSchema();
