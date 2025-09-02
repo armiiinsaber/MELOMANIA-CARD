@@ -11,7 +11,7 @@ export default function Activate() {
   const [msg, setMsg] = useState<string | null>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
 
-  const cleanedUser = useMemo(
+  const clean = useMemo(
     () => username.trim().toLowerCase().replace(/\s+/g, ''),
     [username]
   );
@@ -20,12 +20,11 @@ export default function Activate() {
   useEffect(() => {
     let alive = true;
     setMsg(null);
-    if (!cleanedUser) { setAvailable(null); return; }
-
+    if (!clean) { setAvailable(null); return; }
     (async () => {
       try {
         setChecking(true);
-        const r = await fetch(`/api/username-available?u=${encodeURIComponent(cleanedUser)}`, { cache: 'no-store' });
+        const r = await fetch(`/api/username-available?u=${encodeURIComponent(clean)}`, { cache: 'no-store' });
         const j = await r.json();
         if (!alive) return;
         setAvailable(j.ok ? j.available : null);
@@ -36,9 +35,8 @@ export default function Activate() {
         if (alive) setChecking(false);
       }
     })();
-
     return () => { alive = false; };
-  }, [cleanedUser]);
+  }, [clean]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,14 +46,13 @@ export default function Activate() {
     try {
       const res = await fetch('/api/activate', {
         method: 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body: JSON.stringify({ email: email.trim(), username: cleanedUser })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), username: clean })
       });
       const j = await res.json();
       if (j.ok) {
         setCardUrl(j.cardUrl);
       } else {
-        // <-- show the precise reason and DB detail if present
         const pieces = [j.reason, j.detail].filter(Boolean);
         setMsg(pieces.length ? pieces.join(': ') : 'activation_failed');
       }
@@ -67,47 +64,55 @@ export default function Activate() {
   }
 
   return (
-    <main style={{ maxWidth: 560, margin: '40px auto', padding: 24 }}>
-      <h1>Activate your Melomania Card</h1>
-      <p>Choose your Melomania username — this will appear on your card at the door.</p>
+    <main className="page">
+      <section className="card">
+        <h1 className="brand">MELOMANIA<span className="dot">.</span></h1>
+        <div className="subtle">Access Activation</div>
 
-      <form onSubmit={onSubmit} style={{ display: 'grid', gap: 10 }}>
-        <input
-          placeholder="Email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-          required
-          type="email"
-        />
-        <input
-          placeholder="@username"
-          value={username}
-          onChange={e => setUsername(e.target.value)}
-          style={{ padding: 10, border: '1px solid #ddd', borderRadius: 8 }}
-          required
-        />
+        <form onSubmit={onSubmit} style={{ display: 'grid', gap: 12 }}>
+          <input
+            className="input"
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+          />
+          <input
+            className="input"
+            placeholder="@username"
+            value={username}
+            onChange={e => setUsername(e.target.value)}
+            required
+          />
 
-        <div style={{ fontSize: 13, minHeight: 18, color: available === false ? '#b00' : '#0a0' }}>
-          {checking ? 'Checking…' :
-            available === null ? '' :
-            available ? 'Username is available' : 'Username is taken'}
+          <div className={`meta ${available ? 'ok' : available === false ? 'bad' : ''}`}>
+            {checking
+              ? 'Checking…'
+              : available === null
+              ? ' '
+              : available
+              ? 'Username is available'
+              : 'Username is taken'}
+          </div>
+
+          <button className="btn" disabled={submitting || !email || !clean}>
+            {submitting ? 'Activating…' : 'Activate Card'}
+          </button>
+        </form>
+
+        {msg && <div className="err">{msg}</div>}
+        {cardUrl && (
+          <div className="done">
+            Done! Your card: <a href={cardUrl}>{cardUrl}</a>
+          </div>
+        )}
+
+        {/* Added recovery link */}
+        <div className="done" style={{ opacity: 0.85 }}>
+          Already activated? <a href="/my-card">Find my card</a>
         </div>
-
-        <button
-          disabled={submitting || !email || !cleanedUser}
-          style={{ padding: '10px 14px', border: '1px solid #222', borderRadius: 8 }}
-        >
-          {submitting ? 'Activating…' : 'Activate Card'}
-        </button>
-      </form>
-
-      {msg && <p style={{ color: '#b00', marginTop: 12 }}>{msg}</p>}
-      {cardUrl && (
-        <p style={{ marginTop: 12 }}>
-          Done! Your card: <a href={cardUrl}>{cardUrl}</a>
-        </p>
-      )}
+      </section>
     </main>
   );
 }
