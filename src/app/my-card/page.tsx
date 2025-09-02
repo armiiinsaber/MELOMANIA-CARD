@@ -11,9 +11,7 @@ export default function MyCard() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
-    setCardUrl(null);
-    setLoading(true);
+    setMsg(null); setCardUrl(null); setLoading(true);
     try {
       const r = await fetch('/api/my-card', {
         method:'POST',
@@ -46,6 +44,10 @@ export default function MyCard() {
 
         {msg && <div className="err">{msg}</div>}
         {cardUrl && <div className="done">Your card: <a href={cardUrl}>{cardUrl}</a></div>}
+
+        <div className="done" style={{opacity:.85, marginTop:8}}>
+          Forgot details? <a href="/forgot">Recover account</a>
+        </div>
       </section>
     </main>
   );
